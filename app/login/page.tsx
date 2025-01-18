@@ -7,20 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, LogIn } from 'lucide-react'
+import { Loader2, LogIn, BarChart2 } from 'lucide-react'
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { checkRateLimit, getRemainingTime } from '@/utils/rateLimit'
+import { motion } from 'framer-motion'
+import { useSpring, animated } from '@react-spring/web'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isRateLimited, setIsRateLimited] = useState(false)
-  const [remainingTime, setRemainingTime] = useState(0)
   const router = useRouter()
   const [supabase, setSupabase] = useState<any>(null)
+
 
   useEffect(() => {
     setSupabase(createClientComponentClient({
@@ -34,29 +34,8 @@ export default function Login() {
     }))
   }, [])
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isRateLimited) {
-      timer = setInterval(() => {
-        const remaining = getRemainingTime();
-        if (remaining <= 0) {
-          setIsRateLimited(false);
-          clearInterval(timer);
-        } else {
-          setRemainingTime(remaining);
-        }
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isRateLimited]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!checkRateLimit()) {
-      setIsRateLimited(true);
-      setRemainingTime(getRemainingTime());
-      return;
-    }
     setLoading(true)
     setError(null)
 
@@ -109,10 +88,6 @@ export default function Login() {
         // Der Fehler wird bereits über setError angezeigt
       } else if (error.message === 'Invalid login credentials') {
         setError('Ungültige Anmeldedaten. Bitte überprüfen Sie Ihre E-Mail und Ihr Passwort.');
-      } else if (error.message === 'Request rate limit reached') {
-        setIsRateLimited(true);
-        setRemainingTime(getRemainingTime());
-        setError('Sie haben das Anfragelimit erreicht. Bitte warten Sie eine Minute, bevor Sie es erneut versuchen.');
       } else {
         setError(`Ein Fehler ist aufgetreten: ${error.message}`);
       }
@@ -121,76 +96,105 @@ export default function Login() {
     }
   }
 
+  const fadeIn = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  }
+
+  const springProps = useSpring({
+    from: { transform: 'scale(0.9)' },
+    to: { transform: 'scale(1)' },
+    config: { tension: 300, friction: 10 },
+  })
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-slate-900">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Willkommen zurück
-          </CardTitle>
-          <CardDescription className="text-center">
-            Melden Sie sich an, um auf Ihre Agentenauswertung zuzugreifen
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
-          {isRateLimited && (
-            <Alert variant="warning" className="mb-4">
-              <AlertDescription>
-                Bitte warten Sie {Math.ceil(remainingTime / 1000)} Sekunden, bevor Sie es erneut versuchen.
-              </AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@firma.de"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading || isRateLimited}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading || isRateLimited}
-                required
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading || isRateLimited}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Wird eingeloggt...
-                </>
-              ) : (
-                <>
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Anmelden
-                </>
+    <div className="min-h-screen flex flex-col items-center justify-between bg-gradient-to-br from-blue-400 to-indigo-600 dark:from-gray-900 dark:to-slate-900 overflow-hidden py-8">
+      <div className="flex-grow flex flex-col items-center justify-center w-full">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeIn}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-4xl font-bold text-white mb-2">Post Analyzer</h1>
+          <p className="text-xl text-white">Analyze tool für calls und Auswertungen</p>
+        </motion.div>
+        <animated.div style={springProps}>
+          <Card className="w-full max-w-md">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold text-center">
+                Willkommen zurück
+              </CardTitle>
+              <CardDescription className="text-center">
+                Melden Sie sich an, um auf Ihre Agentenauswertung zuzugreifen
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>
+                    {error}
+                  </AlertDescription>
+                </Alert>
               )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@firma.de"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Passwort</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Wird eingeloggt...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Anmelden
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </animated.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="mt-8"
+        >
+          <BarChart2 className="text-white h-16 w-16" />
+        </motion.div>
+      </div>
+      <footer className="w-full text-center text-white mt-8">
+        <p>&copy; {new Date().getFullYear()} Embers Call Center und Marketing GmbH. Alle Rechte vorbehalten.</p>
+      </footer>
     </div>
   )
 }
